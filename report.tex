@@ -1,0 +1,134 @@
+\documentclass{article}
+\usepackage{xeCJK}
+\setCJKmainfont{PingFang SC}
+\usepackage{listings}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+% 简化后的Rust语言代码高亮定义
+\lstdefinelanguage{Rust}{
+    keywords={break, const, continue, crate, else, enum, extern, false, fn, for, if, impl, in, let, loop, match, mod, move, mut, pub, ref, return, self, static, struct, super, trait, true, type, unsafe, use, where, while, async, await, dyn},
+    sensitive=true,
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]{"},
+}
+
+\geometry{a4paper, margin=1in}
+\title{Rust 基础 PDF 阅读器项目报告}
+\author{Geoffrey Wang}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{简介}
+本项目展示了如何使用 Rust 和 Actix-web 框架创建一个基础的在线 PDF 阅读器。该阅读器允许用户在浏览器中内嵌查看 PDF 文件，而不是直接下载。
+
+\section{项目结构}
+项目的基本结构如下：
+\begin{verbatim}
+your_project/
+├── Cargo.toml
+├── src/
+│   └── main.rs
+├── static/
+│   └── index.html
+└── pdfs/
+    └── sample.pdf
+\end{verbatim}
+
+\section{代码说明}
+
+\subsection{main.rs}
+`main.rs` 文件是项目的核心，用于配置 Actix-web 服务器，并处理 PDF 文件的在线显示。
+
+\begin{lstlisting}[language=rust, caption=main.rs]
+use actix_files::NamedFile;
+use actix_web::{web, App, HttpServer, HttpRequest, Result};
+use actix_web::http::header::{ContentDisposition, DispositionType};
+use std::path::PathBuf;
+
+async fn serve_pdf(req: HttpRequest) -> Result<NamedFile> {
+    let filename: String = req.match_info().query("filename").parse().unwrap();
+    let path: PathBuf = format!("./pdfs/{}", filename).parse().unwrap();
+
+    let file = NamedFile::open(path)?
+        .set_content_disposition(ContentDisposition {
+            disposition: DispositionType::Inline,
+            parameters: vec![],
+        });
+    
+    Ok(file)
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new()
+            .route("/pdf/{filename}", web::get().to(serve_pdf))
+            .service(actix_files::Files::new("/", "./static").index_file("index.html"))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
+}
+\end{lstlisting}
+
+\subsection{index.html}
+`index.html` 文件用于设置 PDF 阅读器的界面，使用 `<iframe>` 标签嵌入 PDF 文件。
+
+\begin{lstlisting}[language=html, caption=index.html]
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Reader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        iframe {
+            border: 1px solid #ccc;
+            width: 80%;
+            height: 80%;
+        }
+    </style>
+    <script>
+        // 禁用右键菜单（减少直接下载的可能性）
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        }, false);
+    </script>
+</head>
+<body>
+    <h1>PDF Reader</h1>
+    <iframe src="/pdf/sample.pdf" width="100%" height="800px"></iframe>
+</body>
+</html>
+\end{lstlisting}
+
+\section{运行和验证步骤}
+在项目根目录下运行以下命令以启动服务器：
+
+\begin{verbatim}
+cargo run
+\end{verbatim}
+
+然后，在浏览器中访问 \url{http://127.0.0.1:8080}，您应该能看到内嵌显示的 PDF 文件。如果显示正确，项目就已经成功运行。
+
+\end{document}
